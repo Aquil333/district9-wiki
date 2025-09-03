@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Пользователи (админы)
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  role      Role     @default(EDITOR)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  articles  Article[]
+  revisions Revision[]
+}
+
+// Роли пользователей
+enum Role {
+  ADMIN
+  EDITOR
+  MODERATOR
+}
+
+// Категории статей
+model Category {
+  id          String     @id @default(uuid())
+  slug        String     @unique
+  title       String
+  description String?    @db.Text
+  icon        String?    // имя иконки из lucide-react
+  order       Int        @default(0)
+  parentId    String?
+  parent      Category?  @relation("CategoryToCategory", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Category[] @relation("CategoryToCategory")
+  articles    Article[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  @@index([slug])
+  @@index([parentId])
+}
+
+// Статьи
+model Article {
+  id          String     @id @default(uuid())
+  slug        String     @unique
+  title       String
+  description String?    @db.Text
+  content     String     @db.LongText
+  published   Boolean    @default(false)
+  featured    Boolean    @default(false)
+  views       Int        @default(0)
+  readTime    Int?       // время чтения в минутах
+  
+  categoryId  String
+  category    Category   @relation(fields: [categoryId], references: [id])
+  
+  authorId    String
+  author      User       @relation(fields: [authorId], references: [id])
+  
+  tags        Tag[]
+  revisions   Revision[]
+  
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  publishedAt DateTime?
+  
+  @@index([slug])
+  @@index([categoryId])
+  @@index([authorId])
+  @@index([published])
+}
+
+// Теги для статей
+model Tag {
+  id       String    @id @default(uuid())
+  name     String    @unique
+  slug     String    @unique
+  articles Article[]
+  
+  @@index([slug])
+}
+
+// История изменений статей
+model Revision {
+  id        String   @id @default(uuid())
+  content   String   @db.LongText
+  comment   String?  @db.Text
+  
+  articleId String
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  
+  createdAt DateTime @default(now())
+  
+  @@index([articleId])
+  @@index([authorId])
+}
+
+// Настройки сайта
+model Settings {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String   @db.Text
+  description String?
+  updatedAt   DateTime @updatedAt
+  
+  @@index([key])
+}
