@@ -81,7 +81,7 @@ export default function AdminLoginPage() {
                   text-white placeholder:text-gray-500 
                   focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50
                   transition-all duration-200"
-                placeholder="admin@district9.ru"
+                placeholder="admin@admin.com"
                 required
                 disabled={isLoading}
               />
@@ -134,15 +134,6 @@ export default function AdminLoginPage() {
             </a>
           </div>
         </form>
-
-        {/* Test credentials hint */}
-        <div className="mt-6 glass rounded-lg p-4">
-          <p className="text-xs text-gray-400 text-center">
-            Тестовые данные для входа:<br />
-            Email: <span className="text-purple-400">admin@district9.ru</span><br />
-            Пароль: <span className="text-purple-400">admin123</span>
-          </p>
-        </div>
       </div>
     </div>
   );

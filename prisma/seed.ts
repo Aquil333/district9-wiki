@@ -7,13 +7,13 @@ async function main() {
   console.log('🌱 Создаем тестовые данные...');
 
   // Создаем тестового админа
-  const hashedPassword = await bcrypt.hash('admin123', 10);
+  const hashedPassword = await bcrypt.hash('1234', 10);
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@district9.ru' },
+    where: { email: 'logan@logan.com' },
     update: {},
     create: {
-      email: 'admin@district9.ru',
-      username: 'admin',
+      email: 'logan@logan.com',
+      username: 'Logan',
       password: hashedPassword,
       role: 'ADMIN'
     }

@@ -300,7 +300,8 @@ export default function ArticleForm({ article, isEdit = false }: ArticleFormProp
               value={formData.categoryId}
               onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
               className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg 
-                text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50
+                [&>option]:text-gray-300 [&>option]:bg-gray-800"
               required
             >
               <option value="">Выберите категорию</option>
