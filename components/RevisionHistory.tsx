@@ -38,13 +38,11 @@ interface Revision {
 interface RevisionHistoryProps {
   articleId: string;
   currentTitle?: string;
-  onRestore?: () => void;
 }
 
 export default function RevisionHistory({ 
   articleId, 
-  currentTitle = "История изменений",
-  onRestore 
+  currentTitle = "История изменений",   
 }: RevisionHistoryProps) {
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,10 +81,7 @@ export default function RevisionHistory({
         // Обновляем список версий
         await fetchRevisions();
         
-        // Уведомляем родительский компонент
-        if (onRestore) {
-          onRestore();
-        }
+        window.location.reload();
         
         setShowConfirm(false);
         setSelectedRevision(null);

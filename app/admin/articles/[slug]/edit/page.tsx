@@ -5,7 +5,7 @@ import Link from "next/link";
 import ArticleForm from "@/components/ArticleForm";
 import RevisionHistory from "@/components/RevisionHistory";
 import { notFound } from "next/navigation";
-import { History, FileText } from "lucide-react";
+import { History } from "lucide-react";
 
 interface PageProps {
   params: Promise<{
@@ -13,10 +13,9 @@ interface PageProps {
   }>;
 }
 
-// ИЗМЕНЕНО: принимаем slug вместо id
 async function getArticle(slug: string) {
-  const article = await prisma.article.findFirst({
-    where: { slug },  // ИЗМЕНЕНО: ищем по slug
+  const article = await prisma.article.findUnique({
+    where: { slug },
     include: {
       category: true,
       tags: true,
@@ -42,7 +41,6 @@ export default async function EditArticlePage({ params }: PageProps) {
     redirect("/admin/login");
   }
 
-  // ИЗМЕНЕНО: используем slug
   const article = await getArticle(resolvedParams.slug);
   
   if (!article) {
@@ -89,10 +87,6 @@ export default async function EditArticlePage({ params }: PageProps) {
               <RevisionHistory 
                 articleId={article.id}
                 currentTitle={article.title}
-                onRestore={() => {
-                  // Перезагружаем страницу после восстановления
-                  window.location.reload();
-                }}
               />
             </div>
           </div>
