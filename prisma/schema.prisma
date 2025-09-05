@@ -90,20 +90,40 @@ model Tag {
 
 // История изменений статей
 model Revision {
-  id        String   @id @default(uuid())
-  content   String   @db.LongText
-  comment   String?  @db.Text
+  id          String   @id @default(uuid())
   
-  articleId String
-  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  // Версионируемые поля
+  title       String
+  description String?  @db.Text
+  content     String   @db.LongText
   
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id])
+  // Метаданные версии
+  version     Int      // номер версии (1, 2, 3...)
+  comment     String?  @db.Text // комментарий к изменениям
+  changeType  ChangeType @default(UPDATE) // тип изменения
   
-  createdAt DateTime @default(now())
+  // Связи
+  articleId   String
+  article     Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id])
+  
+  // Временные метки
+  createdAt   DateTime @default(now())
   
   @@index([articleId])
   @@index([authorId])
+  @@index([version])
+  @@unique([articleId, version]) // уникальная версия для каждой статьи
+}
+
+// Тип изменения
+enum ChangeType {
+  CREATE   // создание статьи
+  UPDATE   // обновление
+  RESTORE  // восстановление из версии
+  DELETE   // удаление (soft delete)
 }
 
 // Настройки сайта

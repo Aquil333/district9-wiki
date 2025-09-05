@@ -161,7 +161,7 @@ export default async function AdminArticlesPage() {
                           <Eye className="w-4 h-4" />
                         </Link>
                         <Link
-                          href={`/admin/articles/${article.id}/edit`}
+                          href={`/admin/articles/${article.slug}/edit`}
                           className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
                           title="Редактировать"
                         >

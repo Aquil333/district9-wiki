@@ -49,82 +49,65 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/articles - создать статью
+// POST - создать статью
+
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
-    const { 
-      title, 
-      slug, 
-      description, 
-      content, 
-      categoryId, 
-      published,
-      featured,
-      tags,
-      readTime
-    } = body;
+    const { title, slug, description, content, categoryId, published, featured } = body;
 
-    // Получаем первого админа из БД (временное решение)
-    const admin = await prisma.user.findFirst({
-      where: { role: "ADMIN" }
+    // Находим пользователя
+    const user = await prisma.user.findUnique({
+      where: { email: session.user?.email || "" }
     });
 
-    if (!admin) {
-      return NextResponse.json(
-        { error: 'No admin user found' },
-        { status: 400 }
-      );
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const authorId = admin.id; 
-
-    // Проверка на существование slug
-    const existing = await prisma.article.findUnique({
-      where: { slug }
-    });
-
-    if (existing) {
-      return NextResponse.json(
-        { error: 'Article with this slug already exists' },
-        { status: 400 }
-      );
-    }
-
-    const article = await prisma.article.create({
-      data: {
-        title,
-        slug,
-        description,
-        content,
-        categoryId,
-        authorId,
-        published,
-        featured,
-        readTime,
-        publishedAt: published ? new Date() : null,
-        tags: {
-          connectOrCreate: tags?.map((tag: string) => ({
-            where: { slug: tag },
-            create: { 
-              name: tag.charAt(0).toUpperCase() + tag.slice(1),
-              slug: tag 
-            }
-          })) || []
+    // Создаем статью и первую версию в транзакции
+    const result = await prisma.$transaction(async (tx) => {
+      // Создаем статью
+      const article = await tx.article.create({
+        data: {
+          title,
+          slug,
+          description,
+          content,
+          categoryId,
+          published: published || false,
+          featured: featured || false,
+          authorId: user.id
         }
-      },
-      include: {
-        category: true,
-        author: true,
-        tags: true
-      }
+      });
+
+      // Создаем первую версию
+      const revision = await tx.revision.create({
+        data: {
+          title,
+          description,
+          content,
+          version: 1,
+          comment: "Первоначальная версия",
+          changeType: "CREATE",
+          articleId: article.id,
+          authorId: user.id
+        }
+      });
+
+      return { article, revision };
     });
 
-    return NextResponse.json(article, { status: 201 });
+    return NextResponse.json(result.article);
   } catch (error) {
-    console.error('Error creating article:', error);
+    console.error("Error creating article:", error);
     return NextResponse.json(
-      { error: 'Failed to create article' },
+      { error: "Failed to create article" },
       { status: 500 }
     );
   }

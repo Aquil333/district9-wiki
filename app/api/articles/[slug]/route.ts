@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getServerSession } from "next-auth";
 
 interface RouteParams {
   params: Promise<{ slug: string }>;
@@ -70,10 +71,16 @@ export async function PATCH(
   { params }: RouteParams
 ) {
   try {
+    const session = await getServerSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const resolvedParams = await params;
     const body = await request.json();
     const { 
       title, 
+      slug,
       description, 
       content, 
       categoryId, 
@@ -82,57 +89,92 @@ export async function PATCH(
       tags
     } = body;
 
-    // Получаем первого админа из БД (временное решение)
-    const admin = await prisma.user.findFirst({
-      where: { role: "ADMIN" }
+    // Находим пользователя по email из сессии
+    const user = await prisma.user.findUnique({
+      where: { email: session.user?.email || "" }
     });
 
-    if (!admin) {
-      return NextResponse.json(
-        { error: 'No admin user found' },
-        { status: 400 }
-      );
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const article = await prisma.article.update({
-      where: { slug: resolvedParams.slug },
-      data: {
-        title,
-        description,
-        content,
-        categoryId,
-        published,
-        featured,
-        publishedAt: published ? new Date() : null,
-        tags: tags ? {
-          set: [], // Сначала отключаем все теги
-          connectOrCreate: tags.map((tag: string) => ({
-            where: { slug: tag },
-            create: { 
-              name: tag.charAt(0).toUpperCase() + tag.slice(1),
-              slug: tag 
-            }
-          }))
-        } : undefined
-      },
-      include: {
-        category: true,
-        author: true,
-        tags: true
-      }
+    // Получаем текущую версию статьи
+    const currentArticle = await prisma.article.findUnique({
+      where: { slug: resolvedParams.slug }
     });
 
-    // Создаем ревизию для истории изменений
-    await prisma.revision.create({
-      data: {
-        content,
-        articleId: article.id,
-        authorId: admin.id,
-        comment: "Updated article"
+    if (!currentArticle) {
+      return NextResponse.json({ error: "Article not found" }, { status: 404 });
+    }
+
+    // Проверяем, есть ли реальные изменения в контенте
+    const hasContentChanges = 
+      currentArticle.title !== title ||
+      currentArticle.description !== description ||
+      currentArticle.content !== content;
+
+    // Обновляем статью и создаем версию если есть изменения
+    const result = await prisma.$transaction(async (tx) => {
+      // Обновляем статью
+      const updatedArticle = await tx.article.update({
+        where: { slug: resolvedParams.slug },
+        data: {
+          title,
+          slug: slug || currentArticle.slug,
+          description,
+          content,
+          categoryId,
+          published,
+          featured,
+          publishedAt: published ? (currentArticle.publishedAt || new Date()) : null,
+          updatedAt: new Date(),
+          tags: tags ? {
+            set: [], // Сначала отключаем все теги
+            connectOrCreate: tags.map((tag: string) => ({
+              where: { slug: tag.toLowerCase().replace(/\s+/g, '-') },
+              create: { 
+                name: tag.charAt(0).toUpperCase() + tag.slice(1),
+                slug: tag.toLowerCase().replace(/\s+/g, '-')
+              }
+            }))
+          } : undefined
+        },
+        include: {
+          category: true,
+          author: true,
+          tags: true
+        }
+      });
+
+      // Если есть изменения в контенте, создаем новую версию
+      if (hasContentChanges) {
+        // Получаем последнюю версию для определения номера
+        const lastRevision = await tx.revision.findFirst({
+          where: { articleId: currentArticle.id },
+          orderBy: { version: 'desc' }
+        });
+
+        const nextVersion = (lastRevision?.version || 0) + 1;
+
+        // Создаем новую версию
+        await tx.revision.create({
+          data: {
+            title,
+            description,
+            content,
+            version: nextVersion,
+            comment: `Обновление версии ${nextVersion}`,
+            changeType: "UPDATE",
+            articleId: currentArticle.id,
+            authorId: user.id
+          }
+        });
       }
+
+      return updatedArticle;
     });
 
-    return NextResponse.json(article);
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error updating article:', error);
     return NextResponse.json(

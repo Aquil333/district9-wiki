@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import ArticleLayout from '@/components/ArticleLayout';
-import ReactMarkdown from 'react-markdown';
 
 interface PageProps {
   params: Promise<{
@@ -96,11 +95,11 @@ export default async function ArticlePage({ params }: PageProps) {
     title: article.title
   });
 
-  // Формируем оглавление из markdown заголовков
-  const headings = article.content.match(/^#{1,3} .+$/gm) || [];
-  const toc = headings.map((heading, index) => {
-    const level = heading.match(/^#+/)?.[0].length || 1;
-    const title = heading.replace(/^#+\s/, '');
+  // Формируем оглавление из HTML заголовков
+  const headingMatches = article.content.match(/<h([1-3])[^>]*>(.*?)<\/h[1-3]>/gi) || [];
+  const toc = headingMatches.map((heading, index) => {
+    const level = parseInt(heading.match(/<h([1-3])/i)?.[1] || '1');
+    const title = heading.replace(/<[^>]*>/g, ''); // Убираем HTML теги
     const id = `heading-${index}`;
     return { id, title, level };
   });
@@ -115,84 +114,26 @@ export default async function ArticlePage({ params }: PageProps) {
       lastUpdated={new Date(article.updatedAt).toLocaleDateString('ru-RU')}
       toc={toc}
     >
-      <div className="prose prose-invert prose-purple max-w-none">
-        <ReactMarkdown
-          components={{
-            h1: ({ children, ...props }) => (
-              <h1 className="text-3xl font-montserrat font-bold text-white mb-6 mt-8" {...props}>
-                {children}
-              </h1>
-            ),
-            h2: ({ children, ...props }) => (
-              <h2 className="text-2xl font-montserrat font-bold text-white mb-4 mt-6" {...props}>
-                {children}
-              </h2>
-            ),
-            h3: ({ children, ...props }) => (
-              <h3 className="text-xl font-montserrat font-semibold text-white mb-3 mt-4" {...props}>
-                {children}
-              </h3>
-            ),
-            p: ({ children, ...props }) => (
-              <p className="text-gray-300 mb-4 leading-relaxed" {...props}>
-                {children}
-              </p>
-            ),
-            ul: ({ children, ...props }) => (
-              <ul className="list-disc list-inside text-gray-300 mb-4 space-y-2" {...props}>
-                {children}
-              </ul>
-            ),
-            ol: ({ children, ...props }) => (
-              <ol className="list-decimal list-inside text-gray-300 mb-4 space-y-2" {...props}>
-                {children}
-              </ol>
-            ),
-            li: ({ children, ...props }) => (
-              <li className="text-gray-300" {...props}>
-                {children}
-              </li>
-            ),
-            a: ({ children, href, ...props }) => (
-              <a 
-                href={href} 
-                className="text-purple-400 hover:text-purple-300 underline underline-offset-2"
-                {...props}
-              >
-                {children}
-              </a>
-            ),
-            code: ({ children, ...props }) => (
-              <code className="bg-black/50 px-2 py-1 rounded text-purple-400 text-sm" {...props}>
-                {children}
-              </code>
-            ),
-            pre: ({ children, ...props }) => (
-              <pre className="bg-black/50 border border-white/10 rounded-lg p-4 overflow-x-auto mb-6" {...props}>
-                {children}
-              </pre>
-            ),
-            blockquote: ({ children, ...props }) => (
-              <blockquote className="border-l-4 border-purple-500 pl-4 italic text-gray-400 my-4" {...props}>
-                {children}
-              </blockquote>
-            ),
-            hr: () => <hr className="border-white/10 my-8" />,
-            strong: ({ children, ...props }) => (
-              <strong className="text-white font-semibold" {...props}>
-                {children}
-              </strong>
-            ),
-            em: ({ children, ...props }) => (
-              <em className="text-gray-300" {...props}>
-                {children}
-              </em>
-            ),
-          }}
-        >
-          {article.content}
-        </ReactMarkdown>
-      </div>
+      {/* Отображаем HTML контент от TipTap редактора */}
+      <div 
+        className="prose prose-invert prose-purple max-w-none
+          prose-h1:text-3xl prose-h1:font-montserrat prose-h1:font-bold prose-h1:text-white prose-h1:mb-6 prose-h1:mt-8
+          prose-h2:text-2xl prose-h2:font-montserrat prose-h2:font-bold prose-h2:text-white prose-h2:mb-4 prose-h2:mt-6
+          prose-h3:text-xl prose-h3:font-montserrat prose-h3:font-semibold prose-h3:text-white prose-h3:mb-3 prose-h3:mt-4
+          prose-p:text-gray-300 prose-p:mb-4 prose-p:leading-relaxed
+          prose-ul:list-disc prose-ul:list-inside prose-ul:text-gray-300 prose-ul:mb-4 prose-ul:space-y-2
+          prose-ol:list-decimal prose-ol:list-inside prose-ol:text-gray-300 prose-ol:mb-4 prose-ol:space-y-2
+          prose-li:text-gray-300
+          prose-a:text-purple-400 prose-a:hover:text-purple-300 prose-a:underline prose-a:underline-offset-2
+          prose-code:bg-black/50 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-purple-400 prose-code:text-sm
+          prose-pre:bg-black/50 prose-pre:border prose-pre:border-white/10 prose-pre:rounded-lg prose-pre:p-4 prose-pre:overflow-x-auto prose-pre:mb-6
+          prose-blockquote:border-l-4 prose-blockquote:border-purple-500 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-gray-400 prose-blockquote:my-4
+          prose-hr:border-white/10 prose-hr:my-8
+          prose-strong:text-white prose-strong:font-semibold
+          prose-em:text-gray-300
+          prose-img:rounded-lg prose-img:my-4 prose-img:mx-auto"
+        dangerouslySetInnerHTML={{ __html: article.content }}
+      />
 
       {/* Теги */}
       {article.tags.length > 0 && (
@@ -240,6 +181,6 @@ export async function generateMetadata({ params }: PageProps) {
 
   return {
     title: `${article.title} - District 9 Wiki`,
-    description: article.description || article.content.substring(0, 160),
+    description: article.description || article.content.substring(0, 160).replace(/<[^>]*>/g, ''),
   };
 }
