@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import IconPicker from "./IconPicker";
 import { 
   Plus, 
   Edit3, 
@@ -16,6 +17,7 @@ import {
   AlertTriangle,
   GripVertical
 } from "lucide-react";
+import * as Icons from "lucide-react";
 
 interface Category {
   id: string;
@@ -49,6 +51,7 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
     title: "",
     slug: "",
     description: "",
+    icon: "",
     parentId: "",
     order: 0
   });
@@ -76,6 +79,7 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
       title: category.title,
       slug: category.slug,
       description: category.description || "",
+      icon: category.icon || "",
       parentId: category.parentId || "",
       order: category.order
     });
@@ -95,14 +99,11 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
       });
 
       if (response.ok) {
-        // Обновляем страницу для загрузки новых данных
         router.refresh();
         
-        // Если создаем новую категорию, добавляем её локально для немедленного отображения
         if (!id) {
           const newCategory = await response.json();
           if (formData.parentId) {
-            // Если есть родитель, добавляем в children
             setCategories(prev => prev.map(cat => {
               if (cat.id === formData.parentId) {
                 return {
@@ -113,7 +114,6 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
               return cat;
             }));
           } else {
-            // Если нет родителя, добавляем в корень
             setCategories(prev => [...prev, newCategory]);
           }
         }
@@ -124,6 +124,7 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
           title: "",
           slug: "",
           description: "",
+          icon: "",
           parentId: "",
           order: 0
         });
@@ -147,7 +148,6 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
       });
 
       if (response.ok) {
-        // Удаляем категорию локально для немедленного обновления
         setCategories(prev => {
           const removeCategory = (cats: Category[]): Category[] => {
             return cats
@@ -176,7 +176,6 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
     setIsMoving(true);
     
     try {
-      // Находим категорию и её соседей
       const parentCategories = categories.filter(c => !c.parentId);
       const index = parentCategories.findIndex(c => c.id === categoryId);
       
@@ -192,11 +191,9 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
       const categoryToMove = parentCategories[index];
       const categoryToSwap = parentCategories[newIndex];
 
-      // Меняем порядок
       const newOrder1 = categoryToMove.order;
       const newOrder2 = categoryToSwap.order;
 
-      // Обновляем на сервере
       await Promise.all([
         fetch(`/api/categories/${categoryToMove.id}`, {
           method: "PATCH",
@@ -216,7 +213,6 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
         })
       ]);
 
-      // Обновляем локально для мгновенного отображения
       const newCategories = [...categories];
       const cat1 = newCategories.find(c => c.id === categoryToMove.id);
       const cat2 = newCategories.find(c => c.id === categoryToSwap.id);
@@ -226,7 +222,6 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
         cat1.order = cat2.order;
         cat2.order = tempOrder;
         
-        // Сортируем по новому порядку
         newCategories.sort((a, b) => {
           if (a.parentId === b.parentId) {
             return a.order - b.order;
@@ -243,6 +238,12 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
     } finally {
       setIsMoving(false);
     }
+  };
+
+  const getIcon = (iconName: string | null) => {
+    if (!iconName) return <FolderOpen className="w-5 h-5 text-purple-400" />;
+    const Icon = (Icons as any)[iconName];
+    return Icon ? <Icon className="w-5 h-5 text-purple-400" /> : <FolderOpen className="w-5 h-5 text-purple-400" />;
   };
 
   const renderCategory = (category: Category, level = 0) => {
@@ -278,6 +279,18 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
                   placeholder="URL (slug)"
                 />
               </div>
+              
+              {/* Выбор иконки */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Иконка категории
+                </label>
+                <IconPicker 
+                  value={formData.icon}
+                  onChange={(iconName) => setFormData({ ...formData, icon: iconName })}
+                />
+              </div>
+              
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -301,6 +314,7 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
                       title: "",
                       slug: "",
                       description: "",
+                      icon: "",
                       parentId: "",
                       order: 0
                     });
@@ -336,7 +350,7 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
                   </div>
                 )}
                 {level > 0 && <ChevronRight className="w-4 h-4 text-gray-500" />}
-                <FolderOpen className="w-5 h-5 text-purple-400" />
+                {getIcon(category.icon)}
                 <div>
                   <h3 className="font-medium text-white">
                     {category.title}
@@ -410,13 +424,7 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
         {/* Render children */}
         {category.children && category.children.length > 0 && (
           <div className="mt-2">
-            {category.children.map(child => {
-              const childWithCount = { 
-                ...child, 
-                _count: child._count || { articles: 0 } 
-              };
-              return renderCategory(childWithCount, level + 1);
-            })}
+            {category.children.map(child => renderCategory(child, level + 1))}
           </div>
         )}
       </div>
@@ -466,6 +474,18 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
                 placeholder="URL (slug)"
               />
             </div>
+            
+            {/* Выбор иконки */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Иконка категории
+              </label>
+              <IconPicker 
+                value={formData.icon}
+                onChange={(iconName) => setFormData({ ...formData, icon: iconName })}
+              />
+            </div>
+            
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -476,9 +496,10 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
             <select
               value={formData.parentId}
               onChange={(e) => setFormData({ ...formData, parentId: e.target.value })}
-              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50
+                [&>option]:text-gray-300 [&>option]:bg-gray-800"
             >
-              <option value="">Без родительской категории</option>
+              <option value="" className="text-gray-400 bg-gray-800">Без родительской категории</option>
               {sortedCategories.map(cat => (
                 <option key={cat.id} value={cat.id}>
                   {cat.title}
@@ -501,6 +522,7 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
                     title: "",
                     slug: "",
                     description: "",
+                    icon: "",
                     parentId: "",
                     order: 0
                   });

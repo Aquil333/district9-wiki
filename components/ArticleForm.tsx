@@ -3,18 +3,15 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import ImageUploader from "./ImageUploader";
+import RichTextEditor from "./RichTextEditor";
 import { 
   Save, 
   X, 
-  FileText,
-  Bold,
-  Italic,
-  List,
-  Link2,
-  Code,
   Eye,
   EyeOff,
-  Loader2
+  Loader2,
+  Image
 } from "lucide-react";
 
 interface Category {
@@ -87,20 +84,21 @@ export default function ArticleForm({ article, isEdit = false }: ArticleFormProp
       const response = await fetch(url, {
         method,
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           ...formData,
-          tags: formData.tags.split(',').map(tag => tag.trim()).filter(Boolean)
+          tags: formData.tags.split(",").map(tag => tag.trim()).filter(Boolean)
         })
       });
 
       if (response.ok) {
-        router.push("/admin/articles");
+        const data = await response.json();
+        router.push(`/admin/articles`);
         router.refresh();
       } else {
         const error = await response.json();
-        alert(error.error || "Ошибка при сохранении статьи");
+        alert(error.error || "Ошибка при сохранении");
       }
     } catch (error) {
       alert("Произошла ошибка");
@@ -109,28 +107,13 @@ export default function ArticleForm({ article, isEdit = false }: ArticleFormProp
     }
   };
 
-  const insertMarkdown = (before: string, after: string = "") => {
-    const textarea = document.getElementById("content") as HTMLTextAreaElement;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = formData.content.substring(start, end);
-    const newText = formData.content.substring(0, start) + before + selectedText + after + formData.content.substring(end);
-    
-    setFormData({ ...formData, content: newText });
-    
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + before.length, end + before.length);
-    }, 0);
-  };
-
-  // Рендер категорий с вложенностью
-  const renderCategoryOptions = (categories: Category[], level = 0): JSX.Element[] => {
+  const renderCategoryOptions = (categories: Category[]) => {
     const options: JSX.Element[] = [];
     
     categories.forEach(category => {
-      // Пропускаем категории без детей и сами родительские категории для статей
-      if (!category.parentId && (!category.children || category.children.length === 0)) {
+      // Проверяем, можно ли добавлять статьи в эту категорию
+      // Можно добавлять только если нет детей или это подкатегория
+      if (category.parentId || (!category.children || category.children.length === 0)) {
         // Это категория верхнего уровня без детей - можно добавлять статьи
         options.push(
           <option key={category.id} value={category.id}>
@@ -184,104 +167,72 @@ export default function ArticleForm({ article, isEdit = false }: ArticleFormProp
               value={formData.slug}
               onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
               className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg 
-                text-white placeholder:text-gray-500 text-sm
-                focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50"
+                text-white placeholder:text-gray-500 
+                focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+              placeholder="url-adres-stati"
               required
+            />
+          </div>
+          
+          {/* Description */}
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Описание
+            </label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg 
+                text-white placeholder:text-gray-500 
+                focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+              rows={2}
+              placeholder="Краткое описание статьи..."
             />
           </div>
         </div>
 
-        {/* Description */}
-        <div className="glass rounded-lg p-6">
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Краткое описание
-          </label>
-          <textarea
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg 
-              text-white placeholder:text-gray-500 
-              focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50"
-            rows={3}
-            placeholder="Краткое описание для превью..."
-          />
-        </div>
-
-        {/* Content */}
+        {/* Content Editor */}
         <div className="glass rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">
             <label className="block text-sm font-medium text-gray-300">
-              Содержание (Markdown)
+              Содержание статьи
             </label>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => insertMarkdown("**", "**")}
-                className="p-2 bg-white/5 hover:bg-white/10 rounded transition-colors"
-                title="Жирный"
-              >
-                <Bold className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => insertMarkdown("*", "*")}
-                className="p-2 bg-white/5 hover:bg-white/10 rounded transition-colors"
-                title="Курсив"
-              >
-                <Italic className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => insertMarkdown("\n- ")}
-                className="p-2 bg-white/5 hover:bg-white/10 rounded transition-colors"
-                title="Список"
-              >
-                <List className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => insertMarkdown("[", "](url)")}
-                className="p-2 bg-white/5 hover:bg-white/10 rounded transition-colors"
-                title="Ссылка"
-              >
-                <Link2 className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => insertMarkdown("`", "`")}
-                className="p-2 bg-white/5 hover:bg-white/10 rounded transition-colors"
-                title="Код"
-              >
-                <Code className="w-4 h-4" />
-              </button>
-            </div>
           </div>
           
           {showPreview ? (
             <div className="prose prose-invert max-w-none p-4 bg-white/5 rounded-lg min-h-[400px]">
-              <div dangerouslySetInnerHTML={{ 
-                __html: formData.content
-                  .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-                  .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-                  .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-                  .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-                  .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-                  .replace(/\n/g, '<br>')
-              }} />
+              <div dangerouslySetInnerHTML={{ __html: formData.content }} />
             </div>
           ) : (
-            <textarea
-              id="content"
+            <RichTextEditor
               value={formData.content}
-              onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg 
-                text-white placeholder:text-gray-500 font-mono text-sm
-                focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50"
-              rows={20}
-              placeholder="# Заголовок&#10;&#10;Текст статьи...&#10;&#10;## Подзаголовок&#10;&#10;- Пункт списка&#10;- Еще пункт"
-              required
+              onChange={(value) => setFormData({ ...formData, content: value })}
+              placeholder="Начните писать статью..."
             />
           )}
+        </div>
+
+        {/* Image Upload Section */}
+        <div className="glass rounded-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Image className="w-5 h-5 text-purple-400" />
+              <h3 className="font-medium text-white">Изображения</h3>
+            </div>
+            <span className="text-xs text-gray-500">
+              Загрузите изображения для статьи
+            </span>
+          </div>
+          
+          <ImageUploader 
+            multiple={true}
+            onImageUploaded={(url) => {
+              // Для TipTap редактора нужно будет вставлять через другой метод
+              // Пока просто копируем URL в буфер обмена
+              navigator.clipboard.writeText(url);
+              alert('URL изображения скопирован! Используйте кнопку изображения в редакторе и вставьте ссылку.');
+            }}
+          />
         </div>
       </div>
 
@@ -304,7 +255,7 @@ export default function ArticleForm({ article, isEdit = false }: ArticleFormProp
                 [&>option]:text-gray-300 [&>option]:bg-gray-800"
               required
             >
-              <option value="">Выберите категорию</option>
+              <option value="" className="text-gray-400 bg-gray-800">Выберите категорию</option>
               {renderCategoryOptions(categories)}
             </select>
           </div>
@@ -395,25 +346,11 @@ export default function ArticleForm({ article, isEdit = false }: ArticleFormProp
           
           <Link
             href="/admin/articles"
-            className="mt-3 w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-colors flex items-center justify-center gap-2"
+            className="w-full mt-3 px-4 py-2 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-colors flex items-center justify-center gap-2"
           >
             <X className="w-4 h-4" />
             Отмена
           </Link>
-        </div>
-
-        {/* Help */}
-        <div className="glass rounded-lg p-6">
-          <h3 className="font-medium text-white mb-4">Справка по Markdown</h3>
-          <div className="space-y-2 text-sm text-gray-400">
-            <div><code className="text-purple-400"># Заголовок 1</code></div>
-            <div><code className="text-purple-400">## Заголовок 2</code></div>
-            <div><code className="text-purple-400">**жирный**</code></div>
-            <div><code className="text-purple-400">*курсив*</code></div>
-            <div><code className="text-purple-400">[текст](ссылка)</code></div>
-            <div><code className="text-purple-400">- элемент списка</code></div>
-            <div><code className="text-purple-400">`код`</code></div>
-          </div>
         </div>
       </div>
     </form>

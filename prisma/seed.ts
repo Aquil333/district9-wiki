@@ -8,10 +8,19 @@ async function main() {
 
   // Создаем тестового админа
   const hashedPassword = await bcrypt.hash('1234', 10);
-  const admin = await prisma.user.upsert({
-    where: { email: 'logan@logan.com' },
-    update: {},
-    create: {
+  
+  // Сначала удаляем старого пользователя если есть
+  await prisma.user.deleteMany({
+    where: {
+      OR: [
+        { email: 'logan@logan.com' },
+        { email: 'admin@district9.ru' }
+      ]
+    }
+  });
+
+  const admin = await prisma.user.create({
+    data: {
       email: 'logan@logan.com',
       username: 'Logan',
       password: hashedPassword,
@@ -20,6 +29,8 @@ async function main() {
   });
 
   console.log('✅ Создан админ:', admin.email);
+  console.log('📧 Email:', admin.email);
+  console.log('🔑 Password: 1234');
 
   // Создаем категории
   const categories = [
@@ -145,7 +156,7 @@ District 9 RP - это RP сервер для GTA 5 на платформе RAGE
 
 main()
   .catch((e) => {
-    console.error('❌ Ошибка:', e);
+    console.error(e);
     process.exit(1);
   })
   .finally(async () => {

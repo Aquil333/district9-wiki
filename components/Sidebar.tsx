@@ -8,7 +8,6 @@ import {
   ChevronDown,
   Menu,
   X,
-  Search,
   BookOpen,
   Gamepad2,
   Users,
@@ -21,9 +20,10 @@ import {
   Shield,
   Coins
 } from "lucide-react";
+import * as Icons from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Маппинг иконок по slug категории
+// Резервный маппинг иконок по slug категории (если в БД нет иконки)
 const iconMap: Record<string, any> = {
   'start': Gamepad2,
   'rp': BookOpen,
@@ -63,6 +63,12 @@ export default function Sidebar({ categories }: SidebarProps) {
   };
 
   const getIcon = (category: Category) => {
+    // Если у категории есть иконка в БД, используем её
+    if (category.icon && (Icons as any)[category.icon]) {
+      const Icon = (Icons as any)[category.icon];
+      return <Icon className="w-5 h-5" />;
+    }
+    // Иначе пробуем найти по slug в маппинге
     const Icon = iconMap[category.slug] || iconMap.default;
     return <Icon className="w-5 h-5" />;
   };
@@ -84,15 +90,6 @@ export default function Sidebar({ categories }: SidebarProps) {
             <p className="text-xs text-gray-400 font-inter">Wiki</p>
           </div>
         </Link>
-      </div>
-
-      {/* Quick Search */}
-      <div className="p-4 border-b border-white/10">
-        <button className="w-full flex items-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors">
-          <Search className="w-4 h-4 text-gray-400" />
-          <span className="text-sm text-gray-400">Быстрый поиск...</span>
-          <kbd className="ml-auto text-xs bg-white/10 px-1.5 py-0.5 rounded">Ctrl+K</kbd>
-        </button>
       </div>
 
       {/* Navigation */}
@@ -158,12 +155,16 @@ export default function Sidebar({ categories }: SidebarProps) {
                     <div className="mt-1 ml-4 pl-4 border-l border-white/10 space-y-1">
                       {category.children.map((child) => {
                         const isSubActive = pathname.startsWith(`/${child.slug}`);
+                        const ChildIcon = child.icon && (Icons as any)[child.icon] 
+                          ? (Icons as any)[child.icon] 
+                          : null;
+                        
                         return (
                           <Link
                             key={child.id}
                             href={`/${child.slug}`}
                             className={cn(
-                              "block px-3 py-1.5 rounded-lg text-sm transition-all duration-200",
+                              "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-all duration-200",
                               "hover:bg-white/5 hover:text-white",
                               isSubActive 
                                 ? "bg-purple-500/20 text-purple-400" 
@@ -171,6 +172,7 @@ export default function Sidebar({ categories }: SidebarProps) {
                             )}
                             onClick={() => setMobileOpen(false)}
                           >
+                            {ChildIcon && <ChildIcon className="w-4 h-4" />}
                             {child.title}
                           </Link>
                         );

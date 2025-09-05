@@ -13,7 +13,7 @@ export async function PATCH(
   try {
     const resolvedParams = await params;
     const body = await request.json();
-    const { title, slug, description, parentId, order } = body;
+    const { title, slug, description, icon, parentId, order } = body;  // Добавили icon
 
     // Проверка на существование категории
     const existing = await prisma.category.findUnique({
@@ -47,6 +47,7 @@ export async function PATCH(
         title,
         slug,
         description,
+        icon: icon || null,  // Добавили icon
         parentId: parentId || null,
         order: order || 0
       }

@@ -45,3 +45,7 @@ prisma/migrations/dev/
 
 # OS
 Thumbs.db
+
+# Uploaded images
+/public/uploads/*
+!/public/uploads/.gitkeep
